@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#18243d" />
+    <meta
+      name="description"
+      content="A frame-by-frame, evidence-aware reference for elite distance-running mechanics."
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2318243d'/%3E%3Cpath d='M17 43c9-2 15-8 17-19m-8 1 8-6 8 7m-9 0-9 10m10-10 11 5' fill='none' stroke='%23c45a2c' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='36' cy='13' r='4' fill='%23f5f1e8'/%3E%3C/svg%3E" />
+    <title>Rift Form Lab — elite distance mechanics</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#lab">Skip to mechanics lab</a>
+
+    <div class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="#lab" aria-label="Rift Form Lab home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="29" cy="9" r="4" fill="currentColor" />
+              <path d="M13 35c8-1 14-6 16-17m-8 2 8-6 8 7m-8-2-9 10m10-9 9 5" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span>
+            <strong>Rift Form Lab</strong>
+            <small>Distance mechanics atlas</small>
+          </span>
+        </a>
+
+        <div class="header-context" aria-label="Model context">
+          <span class="context-dot" aria-hidden="true"></span>
+          <span><b>190 cm reference</b><small>Kenya · Ethiopia · elite distance</small></span>
+        </div>
+      </header>
+
+      <main id="lab">
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="kicker">Biomechanics made visible</p>
+            <h1 id="page-title">See the stride.<br /><em>Understand the system.</em></h1>
+          </div>
+          <p class="intro-copy">
+            Study the relaxed, upright relationships seen in elite distance running. Choose a pace, isolate one phase and look at one relationship at a time.
+          </p>
+        </section>
+
+        <section class="control-deck" aria-label="Motion controls">
+          <div class="control-group pace-control">
+            <div class="control-label">
+              <span>Pace</span>
+              <small>Changes the mechanics</small>
+            </div>
+            <div class="segmented pace-tabs" id="paceTabs" role="group" aria-label="Pace preset"></div>
+          </div>
+
+          <div class="live-pace" aria-live="polite">
+            <strong id="paceReadout">5:10</strong><span>/km</span>
+            <small id="paceName">Easy</small>
+          </div>
+
+          <div class="control-group playback-control">
+            <div class="control-label">
+              <span>Playback</span>
+              <small>Viewing speed only</small>
+            </div>
+            <div class="playback-row">
+              <button class="play-button" id="playButton" type="button" aria-label="Pause animation" aria-pressed="true">
+                <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6Z" /></svg>
+              </button>
+              <div class="segmented speed-tabs" id="speedTabs" role="group" aria-label="Playback speed">
+                <button type="button" data-speed="0.15" aria-pressed="false">0.15×</button>
+                <button type="button" data-speed="0.35" class="active" aria-pressed="true">0.35×</button>
+                <button type="button" data-speed="0.6" aria-pressed="false">0.6×</button>
+                <button type="button" data-speed="1" aria-pressed="false">1×</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="reset-button" id="resetButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8V4m0 0h4M5 4l3 3a7 7 0 1 1-2 7" /></svg>
+            Reset
+          </button>
+        </section>
+
+        <section class="lab-grid" aria-label="Interactive running form lab">
+          <article class="stage-card">
+            <div class="stage-toolbar">
+              <div class="view-tabs" id="viewTabs" role="group" aria-label="Analysis view">
+                <button type="button" aria-pressed="true" data-view="side" class="active">Side</button>
+                <button type="button" aria-pressed="false" data-view="rear">Rear</button>
+                <button type="button" aria-pressed="false" data-view="contrast">Contrast</button>
+              </div>
+
+              <div class="overlay-buttons" id="overlayButtons" aria-label="Visual overlays">
+                <button type="button" data-overlay="geometry" class="active" aria-pressed="true"><span class="overlay-swatch geometry"></span>Geometry</button>
+                <button type="button" data-overlay="forces" class="active" aria-pressed="true"><span class="overlay-swatch forces"></span>Forces</button>
+                <button type="button" data-overlay="trail" aria-pressed="false"><span class="overlay-swatch trail"></span>Trail</button>
+              </div>
+            </div>
+
+            <div class="stage" id="stage">
+              <canvas id="runnerCanvas" aria-label="Animated elite distance-running mechanics model" aria-describedby="canvasDescription"></canvas>
+              <p class="sr-only" id="canvasDescription">Side-view model at easy pace. Load response. Whole-system focus.</p>
+              <div class="stage-readout stage-readout-left">
+                <span id="stageViewLabel">Sagittal view</span>
+                <b id="stageFocusLabel">Whole system</b>
+              </div>
+              <div class="stage-readout stage-readout-right">
+                <span>Lead leg</span>
+                <b id="stagePhaseLabel">Load response</b>
+              </div>
+              <div class="stage-legend" aria-hidden="true">
+                <span><i class="legend-lead"></i>Lead side</span>
+                <span><i class="legend-far"></i>Far side</span>
+                <span><i class="legend-vector"></i>Force</span>
+              </div>
+            </div>
+
+            <div class="contrast-options" id="contrastOptions" hidden>
+              <span>Compare against</span>
+              <div class="segmented">
+                <button type="button" data-contrast="overreach" class="active" aria-pressed="true">Over-reach</button>
+                <button type="button" data-contrast="waist" aria-pressed="false">Waist fold</button>
+                <button type="button" data-contrast="crossover" aria-pressed="false">Crossover</button>
+              </div>
+            </div>
+
+            <div class="timeline-panel">
+              <div class="timeline-topline">
+                <span>One stride · lead leg</span>
+                <output id="phasePercent" for="phaseSlider">10%</output>
+              </div>
+              <div class="scrubber">
+                <div class="timeline-track" aria-hidden="true">
+                  <div class="stance-window" id="stanceWindow"></div>
+                  <div class="timeline-marker" id="timelineMarker"></div>
+                </div>
+                <input id="phaseSlider" type="range" min="0" max="1000" value="100" aria-label="Scrub through one complete stride" />
+              </div>
+              <div class="phase-buttons" id="phaseButtons" aria-label="Stride landmarks"></div>
+            </div>
+          </article>
+
+          <aside class="analysis-card" aria-labelledby="analysis-title">
+            <div class="analysis-header">
+              <p class="panel-index">Current phase</p>
+              <div class="phase-heading">
+                <span id="phaseNumber">02</span>
+                <div>
+                  <h2 id="analysis-title">Load response</h2>
+                  <p id="phaseRange">4–14% of lead-leg stride</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="lens-tabs" id="lensTabs" role="group" aria-label="Coaching lens">
+              <button type="button" data-lens="system" class="active" aria-pressed="true">System</button>
+              <button type="button" data-lens="posture" aria-pressed="false">Posture</button>
+              <button type="button" data-lens="contact" aria-pressed="false">Contact</button>
+              <button type="button" data-lens="recovery" aria-pressed="false">Recovery</button>
+              <button type="button" data-lens="arms" aria-pressed="false">Arms</button>
+            </div>
+
+            <div class="observation">
+              <p class="observation-label">What matters</p>
+              <h3 id="observationTitle">Accept load without sitting.</h3>
+              <p id="observationText">The foot moves back beneath a quiet pelvis. The knee yields, the trunk stays stacked and forward speed is protected.</p>
+              <div class="single-cue">
+                <span>Feel</span>
+                <b id="cueText">Pockets level · ground moving behind you</b>
+              </div>
+            </div>
+
+            <div class="joint-readout" aria-label="Live joint angles">
+              <div><span>Hip</span><strong id="hipAngle">+14°</strong><small id="hipAngleName">flexion</small></div>
+              <div><span>Knee</span><strong id="kneeAngle">35°</strong><small>flexion</small></div>
+              <div><span>Ankle</span><strong id="ankleAngle">8°</strong><small id="ankleAngleName">dorsiflexion</small></div>
+            </div>
+
+            <div class="trace-panel">
+              <div class="trace-head">
+                <span>System trace</span>
+                <small>one lead-leg stride</small>
+              </div>
+              <svg id="traceSvg" viewBox="0 0 360 112" role="img" aria-label="Centre of mass and ground-force trace over one stride">
+                <line x1="10" y1="32" x2="350" y2="32" />
+                <line x1="10" y1="84" x2="350" y2="84" />
+                <path id="comTracePath" class="com-trace" d="" />
+                <path id="forceTracePath" class="force-trace" d="" />
+                <line id="traceMarker" class="trace-marker" x1="44" y1="8" x2="44" y2="100" />
+                <text x="10" y="18">COM</text>
+                <text x="10" y="70">FORCE</text>
+              </svg>
+            </div>
+
+            <div class="metric-grid" aria-label="Pace mechanics">
+              <div><span>Cadence</span><strong id="cadenceMetric">174</strong><small>steps/min</small></div>
+              <div><span>Contact</span><strong id="contactMetric">220</strong><small>milliseconds</small></div>
+              <div><span>Flight</span><strong id="flightMetric">125</strong><small>milliseconds</small></div>
+              <div><span>Step length</span><strong id="stepMetric">1.11</strong><small>metres</small></div>
+              <div><span>Contact share</span><strong id="dutyMetric">31.9</strong><small>% of stride</small></div>
+              <div><span>Vertical travel</span><strong id="bounceMetric">6.4</strong><small>centimetres</small></div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="principles" aria-labelledby="principles-title">
+          <div class="section-intro">
+            <p class="panel-index">Mechanics atlas</p>
+            <h2 id="principles-title">One system. Five relationships.</h2>
+            <p>Form is not a pile of positions. Each relationship protects the next.</p>
+          </div>
+          <div class="principle-grid" id="principleGrid"></div>
+        </section>
+
+        <section class="evidence-section" aria-labelledby="evidence-title">
+          <div class="section-intro evidence-intro">
+            <p class="panel-index">Evidence and boundaries</p>
+            <h2 id="evidence-title">Admire the pattern.<br />Avoid the myth.</h2>
+            <p>
+              This is a visual synthesis of elite distance mechanics, tuned with East African research. It is not a claim that Kenyan or Ethiopian runners share one genetic, national or “perfect” gait.
+            </p>
+          </div>
+          <div class="evidence-grid" id="evidenceGrid"></div>
+        </section>
+      </main>
+
+      <footer>
+        <span>Rift Form Lab</span>
+        <p>Educational reference · not diagnosis, screening or a prescription to force a foot strike.</p>
+        <a href="#lab">Back to lab ↑</a>
+      </footer>
+    </div>
+
+    <noscript>This mechanics lab needs JavaScript to animate and inspect the stride.</noscript>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
