@@ -7,8 +7,11 @@ import {
   wrap01
 } from './kinematics.js';
 
-const STAGE_WIDTH = 1000;
-const STAGE_HEIGHT = 640;
+const DESKTOP_STAGE = Object.freeze({ width: 1000, height: 640 });
+const PORTRAIT_STAGE = Object.freeze({ width: 620, height: 780 });
+let activeStage = DESKTOP_STAGE;
+let activeFit = 1;
+const annotationScale = () => Math.max(1, 1 / activeFit);
 
 const COLOURS = {
   paper: '#f5f1e8',
@@ -37,6 +40,9 @@ const COLOURS = {
 
 function prepareCanvas(canvas) {
   const bounds = canvas.getBoundingClientRect();
+  activeStage = bounds.width <= 640 && bounds.height > bounds.width
+    ? PORTRAIT_STAGE
+    : DESKTOP_STAGE;
   const dpr = Math.min(window.devicePixelRatio || 1, 2.25);
   const width = Math.max(1, Math.round(bounds.width * dpr));
   const height = Math.max(1, Math.round(bounds.height * dpr));
@@ -45,11 +51,15 @@ function prepareCanvas(canvas) {
     canvas.height = height;
   }
   const context = canvas.getContext('2d');
-  const fit = Math.min(bounds.width / STAGE_WIDTH, bounds.height / STAGE_HEIGHT);
-  const offsetX = (bounds.width - STAGE_WIDTH * fit) / 2;
-  const offsetY = (bounds.height - STAGE_HEIGHT * fit) / 2;
+  const fit = Math.min(
+    bounds.width / activeStage.width,
+    bounds.height / activeStage.height
+  );
+  activeFit = fit;
+  const offsetX = (bounds.width - activeStage.width * fit) / 2;
+  const offsetY = (bounds.height - activeStage.height * fit) / 2;
   context.setTransform(dpr * fit, 0, 0, dpr * fit, dpr * offsetX, dpr * offsetY);
-  context.clearRect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+  context.clearRect(0, 0, activeStage.width, activeStage.height);
   context.lineCap = 'round';
   context.lineJoin = 'round';
   return context;
@@ -421,29 +431,41 @@ function drawSkeleton(context, pose, map) {
 }
 
 function drawTag(context, anchor, text, side = 'right', accent = COLOURS.blue) {
+  const ui = annotationScale();
   context.save();
-  context.font = '650 13px ui-sans-serif, system-ui, sans-serif';
+  context.font = `650 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
   context.textBaseline = 'middle';
-  const width = context.measureText(text).width + 24;
-  const height = 32;
-  const gap = 20;
-  const x = side === 'right' ? anchor.x + gap : anchor.x - gap - width;
-  const y = anchor.y - height / 2;
+  const width = context.measureText(text).width + 24 * ui;
+  const height = 32 * ui;
+  const gap = 20 * ui;
+  const margin = 8 * ui;
+  const preferredX = side === 'right' ? anchor.x + gap : anchor.x - gap - width;
+  const x = clamp(
+    preferredX,
+    margin,
+    Math.max(margin, activeStage.width - margin - width)
+  );
+  const y = clamp(
+    anchor.y - height / 2,
+    margin,
+    Math.max(margin, activeStage.height - margin - height)
+  );
+  const lineX = anchor.x <= x ? x : anchor.x >= x + width ? x + width : side === 'right' ? x : x + width;
   drawLine(
     context,
     anchor,
-    { x: side === 'right' ? x : x + width, y: anchor.y },
+    { x: lineX, y: clamp(anchor.y, y + 4 * ui, y + height - 4 * ui) },
     accent,
     1
   );
-  roundedRect(context, x, y, width, height, 6);
+  roundedRect(context, x, y, width, height, 6 * ui);
   context.fillStyle = 'rgba(14, 23, 40, .88)';
   context.fill();
   context.strokeStyle = 'rgba(242, 238, 228, .14)';
   context.lineWidth = 1;
   context.stroke();
   context.fillStyle = COLOURS.paper;
-  context.fillText(text, x + 12, y + height / 2 + 0.5);
+  context.fillText(text, x + 12 * ui, y + height / 2 + 0.5);
   context.beginPath();
   context.arc(anchor.x, anchor.y, 3.1, 0, Math.PI * 2);
   context.fillStyle = accent;
@@ -452,39 +474,57 @@ function drawTag(context, anchor, text, side = 'right', accent = COLOURS.blue) {
 }
 
 function drawJointArc(context, center, radius, start, end, label) {
+  const ui = annotationScale();
   context.save();
   context.beginPath();
   context.arc(center.x, center.y, radius, start, end);
   context.strokeStyle = COLOURS.blue;
   context.lineWidth = 1.4;
   context.stroke();
-  context.font = '650 13px ui-sans-serif, system-ui, sans-serif';
+  context.font = `650 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
   context.fillStyle = '#b6c9d6';
-  context.fillText(label, center.x + radius + 4, center.y - radius * 0.2);
+  context.fillText(label, center.x + radius + 4 * ui, center.y - radius * 0.2);
   context.restore();
 }
 
-function drawGround(context, phase, groundY, paceGain = 1) {
-  const offset = (phase * 360 * paceGain) % 70;
+export function groundPatternAt(phase, preset, scale) {
+  const stridePixels = preset.strideLengthM * 100 * scale;
+  const repeatsPerStride = Math.max(3, Math.round(stridePixels / 70));
+  const spacing = stridePixels / repeatsPerStride;
+  return {
+    stridePixels,
+    repeatsPerStride,
+    spacing,
+    offset: (wrap01(phase) * stridePixels) % spacing
+  };
+}
+
+function drawGround(context, phase, groundY, preset, scale) {
+  const ui = annotationScale();
+  const pattern = groundPatternAt(phase, preset, scale);
   drawLine(
     context,
     { x: 42, y: groundY },
-    { x: 958, y: groundY },
+    { x: activeStage.width - 42, y: groundY },
     'rgba(242, 238, 228, .28)',
     1.15
   );
   context.save();
   context.strokeStyle = 'rgba(242, 238, 228, .12)';
   context.lineWidth = 1;
-  for (let x = 28 - offset; x < 980; x += 70) {
+  for (
+    let x = 28 - pattern.offset;
+    x < activeStage.width - 20;
+    x += pattern.spacing
+  ) {
     context.beginPath();
     context.moveTo(x, groundY + 5);
-    context.lineTo(x + 22, groundY + 5);
+    context.lineTo(x + Math.min(22, pattern.spacing * 0.32), groundY + 5);
     context.stroke();
   }
-  context.font = '600 13px ui-sans-serif, system-ui, sans-serif';
-  context.fillStyle = 'rgba(242, 238, 228, .34)';
-  context.fillText('Ground reference', 48, groundY + 24);
+  context.font = `600 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
+  context.fillStyle = 'rgba(242, 238, 228, .72)';
+  context.fillText('Ground reference', 48, groundY - 12 * ui);
   context.restore();
 }
 
@@ -533,15 +573,16 @@ function drawSideOverlays(context, pose, map, options, preset) {
   }
 
   if (options.forces && foot && pose.force.magnitudeBw > 0.03) {
+    const ui = annotationScale();
     const end = {
       x: foot.x + pose.force.horizontalBw * 175,
       y: foot.y - pose.force.verticalBw * 54
     };
     drawArrow(context, foot, end, COLOURS.rust, 2.5);
     context.save();
-    context.font = '650 13px ui-sans-serif, system-ui, sans-serif';
+    context.font = `650 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
     context.fillStyle = '#e9a07a';
-    context.fillText(`${pose.force.verticalBw.toFixed(1)}× BW`, end.x + 8, end.y - 4);
+    context.fillText(`${pose.force.verticalBw.toFixed(1)}× BW`, end.x + 8 * ui, end.y - 4 * ui);
     context.restore();
   }
 
@@ -597,6 +638,63 @@ function drawSideFigure(
 
   if (!ghost && overlays?.geometry) drawSkeleton(context, pose, map);
   if (!ghost && overlays && preset) drawSideOverlays(context, pose, map, overlays, preset);
+}
+
+function drawFlowGuides(context, state, pose, map, rear = false) {
+  if (state.mode !== 'flow' || state.flowStep !== 'see') return;
+  if (state.flowNeed === 'arms' && rear) {
+    const center = map({ x: 0, y: 0 }).x;
+    const shoulderTop = map(pose.shoulderCenter).y - 20;
+    const hipBottom = map(pose.pelvis).y + 120;
+    drawLine(context, { x: center, y: shoulderTop }, { x: center, y: hipBottom }, 'rgba(245,241,232,.34)', 1, [5, 6]);
+    for (const sign of [-1, 1]) {
+      context.save();
+      context.beginPath();
+      context.setLineDash([8, 8]);
+      context.moveTo(center + sign * 62, shoulderTop + 18);
+      context.quadraticCurveTo(
+        center + sign * 10,
+        (shoulderTop + hipBottom) / 2,
+        center - sign * 20,
+        hipBottom
+      );
+      context.strokeStyle = 'rgba(245,241,232,.18)';
+      context.lineWidth = 2;
+      context.stroke();
+      context.restore();
+      context.save();
+      context.beginPath();
+      context.moveTo(center + sign * 62, shoulderTop + 18);
+      context.quadraticCurveTo(
+        center + sign * 38,
+        (shoulderTop + hipBottom) / 2,
+        center + sign * 24,
+        hipBottom
+      );
+      context.strokeStyle = 'rgba(196,90,44,.78)';
+      context.lineWidth = 2;
+      context.stroke();
+      context.restore();
+    }
+  } else if (state.flowNeed === 'knees' && rear) {
+    for (const x of [pose.lead.ankle.x, pose.far.ankle.x]) {
+      const mapped = map({ x, y: 0 });
+      drawLine(
+        context,
+        { x: mapped.x, y: Math.max(90, mapped.y - 480) },
+        { x: mapped.x, y: mapped.y },
+        'rgba(196,90,44,.7)',
+        2
+      );
+    }
+  } else if (state.flowNeed === 'reach' && !rear) {
+    const hip = map(pose.lead.hip);
+    const foot = map(pose.lead.ankle);
+    drawLine(context, { x: hip.x, y: hip.y - 26 }, { x: hip.x, y: foot.y + 8 }, 'rgba(245,241,232,.38)', 1, [5, 6]);
+    drawArrow(context, { x: foot.x, y: foot.y - 22 }, { x: hip.x, y: foot.y - 22 }, COLOURS.rust, 2.2);
+  } else if (state.flowNeed === 'sit' && !rear) {
+    drawLine(context, map(pose.pelvis), map(pose.head), COLOURS.rust, 2);
+  }
 }
 
 function drawRearShoe(context, leg, map, far = false) {
@@ -776,10 +874,27 @@ function drawRearOverlays(context, pose, map, options, preset) {
     drawTag(context, map(pose.pelvis), `Pelvis ${pose.pelvisTiltDeg.toFixed(1)}°`, 'right');
   } else if (options.lens === 'contact') {
     const stance = pose.lead.isStance ? pose.lead : pose.far;
-    drawTag(context, map(stance.ankle), 'No crossover', stance.ankle.x > 0 ? 'right' : 'left', COLOURS.rust);
+    drawTag(context, map(stance.ankle), 'Own narrow track', stance.ankle.x > 0 ? 'right' : 'left', COLOURS.rust);
+  } else if (options.lens === 'arms') {
+    for (const arm of [pose.leadArm, pose.farArm]) {
+      drawLine(
+        context,
+        map(arm.shoulder),
+        map(arm.wrist),
+        'rgba(185,192,200,.46)',
+        1,
+        [4, 5]
+      );
+    }
+    drawTag(
+      context,
+      map(pose.leadArm.wrist),
+      'Inward hand path',
+      pose.leadArm.wrist.x > 0 ? 'right' : 'left'
+    );
   } else {
     const stance = pose.lead.isStance ? pose.lead : pose.far;
-    drawTag(context, map(stance.knee), 'Knee over foot', stance.knee.x > 0 ? 'right' : 'left');
+    drawTag(context, map(stance.knee), 'Knee stays in its lane', stance.knee.x > 0 ? 'right' : 'left');
   }
 }
 
@@ -790,20 +905,36 @@ function drawRearFigure(
 ) {
   const map = mapWorld(originX, groundY, scale);
   if (!ghost) drawShadow(context, originX, groundY, 92, 0.28);
+  const arms = [
+    { arm: pose.farArm, far: true },
+    { arm: pose.leadArm, far: false }
+  ];
+  const armDepth = ({ arm }) =>
+    ((arm.depth?.elbow || 0) + (arm.depth?.wrist || 0)) / 2;
+  const behind = arms.filter((item) => armDepth(item) >= 0);
+  const inFront = arms.filter((item) => armDepth(item) < 0);
   drawRearLeg(context, pose.far, map, true, ghost);
-  drawRearArm(context, pose.farArm, map, true, ghost);
+  behind.forEach(({ arm, far }) => drawRearArm(context, arm, map, far, ghost));
   drawRearTorso(context, pose, map, ghost);
   drawRearLeg(context, pose.lead, map, false, ghost);
-  drawRearArm(context, pose.leadArm, map, false, ghost);
+  inFront.forEach(({ arm, far }) => drawRearArm(context, arm, map, far, ghost));
   drawRearHead(context, pose, map, ghost);
   if (!ghost && overlays && preset) drawRearOverlays(context, pose, map, overlays, preset);
 }
 
 function drawSideScene(context, state, preset, profile) {
   const pose = computeSidePose(state.phase, preset, profile);
-  drawGround(context, state.phase, 555, preset.speedMps / 3.2);
+  const portrait = activeStage === PORTRAIT_STAGE;
+  const camera = portrait
+    ? { originX: 310, groundY: 730, scale: 3.25 }
+    : { originX: 480, groundY: 555, scale: 2.5 };
+  drawGround(context, state.phase, camera.groundY, preset, camera.scale);
+  const isFlow = state.mode === 'flow';
+  const overlays = isFlow
+    ? { geometry: false, forces: false, trail: false }
+    : state.overlays;
 
-  if (state.overlays.trail) {
+  if (overlays.trail) {
     [0.06, 0.12, 0.18].forEach((offset, index) => {
       const ghost = computeSidePose(wrap01(state.phase - offset), preset, profile);
       mixAlpha(context, 0.15 - index * 0.027, () => {
@@ -813,15 +944,28 @@ function drawSideScene(context, state, preset, profile) {
   }
 
   drawSideFigure(context, pose, {
-    overlays: { ...state.overlays, lens: state.lens },
+    ...camera,
+    overlays:
+      isFlow && state.flowStep !== 'see'
+        ? null
+        : { ...overlays, lens: state.lens },
     preset
   });
+  drawFlowGuides(context, state, pose, mapWorld(camera.originX, camera.groundY, camera.scale), false);
 }
 
 function drawRearScene(context, state, preset, profile) {
   const pose = computeRearPose(state.phase, preset, profile);
-  drawGround(context, state.phase, 555, preset.speedMps / 3.2);
-  if (state.overlays.trail) {
+  const portrait = activeStage === PORTRAIT_STAGE;
+  const camera = portrait
+    ? { originX: 310, groundY: 730, scale: 3.25 }
+    : { originX: 500, groundY: 555, scale: 2.5 };
+  drawGround(context, state.phase, camera.groundY, preset, camera.scale);
+  const isFlow = state.mode === 'flow';
+  const overlays = isFlow
+    ? { geometry: false, forces: false, trail: false }
+    : state.overlays;
+  if (overlays.trail) {
     [0.07, 0.14].forEach((offset, index) => {
       const ghost = computeRearPose(wrap01(state.phase - offset), preset, profile);
       mixAlpha(context, 0.13 - index * 0.035, () => {
@@ -830,14 +974,20 @@ function drawRearScene(context, state, preset, profile) {
     });
   }
   drawRearFigure(context, pose, {
-    overlays: { ...state.overlays, lens: state.lens },
+    ...camera,
+    overlays:
+      isFlow && state.flowStep !== 'see'
+        ? null
+        : { ...overlays, lens: state.lens },
     preset
   });
+  drawFlowGuides(context, state, pose, mapWorld(camera.originX, camera.groundY, camera.scale), true);
 }
 
 function drawContrastLabels(context, mode) {
+  const ui = annotationScale();
   context.save();
-  context.font = '650 13px ui-sans-serif, system-ui, sans-serif';
+  context.font = `650 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = 'center';
   context.fillStyle = '#8f9cad';
   context.fillText('Reference relationship', 260, 74);
@@ -848,7 +998,7 @@ function drawContrastLabels(context, mode) {
     crossover: 'Crossover pattern'
   };
   context.fillText(labels[mode], 740, 74);
-  context.font = '500 13px ui-sans-serif, system-ui, sans-serif';
+  context.font = `500 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
   context.fillStyle = '#8f9cad';
   context.fillText('Quiet stack · soft knee · modest reach', 260, 98);
   const captions = {
@@ -861,8 +1011,83 @@ function drawContrastLabels(context, mode) {
   context.restore();
 }
 
+function drawPortraitContrastLabel(context, title, caption, y, variant = false) {
+  const ui = annotationScale();
+  context.save();
+  context.textAlign = 'center';
+  context.fillStyle = variant ? '#e19a77' : '#b9c0c8';
+  context.font = `650 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
+  context.fillText(title, 310, y);
+  context.fillStyle = '#aab1ba';
+  context.font = `500 ${13 * ui}px ui-sans-serif, system-ui, sans-serif`;
+  context.fillText(caption, 310, y + 16 * ui);
+  context.restore();
+}
+
 function drawContrastScene(context, state, preset, profile) {
   const mode = state.contrast;
+  if (activeStage === PORTRAIT_STAGE) {
+    const labels = {
+      overreach: ['Over-reach pattern', 'Foot farther ahead · more braking'],
+      waist: ['Waist-fold pattern', 'Ribs ahead of pelvis · broken stack'],
+      crossover: ['Crossover pattern', 'Foot crosses centre · knee follows inward']
+    };
+    drawPortraitContrastLabel(
+      context,
+      'Reference relationship',
+      'Quiet stack · soft knee · modest reach',
+      32,
+      false
+    );
+    drawPortraitContrastLabel(context, labels[mode][0], labels[mode][1], 414, true);
+    drawLine(context, { x: 38, y: 390 }, { x: 582, y: 390 }, 'rgba(242,238,228,.16)', 1);
+    if (mode === 'crossover') {
+      const phase = preset.stanceFraction * 0.56;
+      drawRearFigure(context, computeRearPose(phase, preset, profile), {
+        originX: 310,
+        groundY: 374,
+        scale: 1.55,
+        overlays: { geometry: true, forces: false, lens: 'contact' },
+        preset
+      });
+      drawRearFigure(
+        context,
+        computeRearPose(phase, preset, profile, { variant: 'crossover' }),
+        {
+          originX: 310,
+          groundY: 756,
+          scale: 1.55,
+          overlays: { geometry: true, forces: false, lens: 'posture' },
+          preset
+        }
+      );
+    } else {
+      const phase = mode === 'overreach' ? 0.012 : 0.1;
+      drawSideFigure(context, computeSidePose(phase, preset, profile), {
+        originX: 310,
+        groundY: 374,
+        scale: 1.55,
+        overlays: { geometry: true, forces: state.overlays.forces, lens: 'contact' },
+        preset
+      });
+      drawSideFigure(
+        context,
+        computeSidePose(phase, preset, profile, { variant: mode }),
+        {
+          originX: 310,
+          groundY: 756,
+          scale: 1.55,
+          overlays: {
+            geometry: true,
+            forces: state.overlays.forces,
+            lens: mode === 'waist' ? 'posture' : 'contact'
+          },
+          preset
+        }
+      );
+    }
+    return;
+  }
   drawContrastLabels(context, mode);
   if (mode === 'crossover') {
     const phase = preset.stanceFraction * 0.56;
