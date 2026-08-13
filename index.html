@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#18243d" />
     <meta
       name="description"
-      content="A frame-by-frame, evidence-aware reference for distance-running mechanics."
+      content="A calm daily pre-run setup and evidence-aware reference for distance-running mechanics."
     />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2318243d'/%3E%3Cpath d='M17 43c9-2 15-8 17-19m-8 1 8-6 8 7m-9 0-9 10m10-10 11 5' fill='none' stroke='%23c45a2c' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='36' cy='13' r='4' fill='%23f5f1e8'/%3E%3C/svg%3E" />
     <title>Rift Form Lab — distance-running mechanics</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body data-mode="flow">
+  <body data-mode="flow" data-flow-step="run" data-flow-need="flow" data-flow-complete="false">
     <a class="skip-link" href="#lab">Skip to mechanics lab</a>
 
     <div class="app-shell">
@@ -33,22 +33,22 @@
 
         <div class="header-context">
           <span class="context-dot" aria-hidden="true"></span>
-          <span><b>Adjustable distance-running model</b><small>Illustrative · not a prescription</small></span>
+          <span><b>Daily pre-run + mechanics atlas</b><small>Illustrative · not a prescription</small></span>
         </div>
       </header>
 
       <main id="lab" tabindex="-1">
         <section class="intro" aria-labelledby="page-title">
           <div>
-            <p class="kicker">Your running flow studio</p>
-            <h1 id="page-title">Find your flow.</h1>
+            <p class="kicker">Before today’s run</p>
+            <h1 id="page-title">Settle. Then run.</h1>
           </div>
           <div class="intro-action">
             <p class="intro-copy">
-              Choose a pace. Choose one feeling. Watch it, feel it, then let it go.
+              Five small steps. One useful feeling. Then let the run take over.
             </p>
             <div class="mode-tabs segmented" id="modeTabs" role="group" aria-label="Studio mode">
-              <button type="button" data-mode="flow" class="active" aria-pressed="true">Flow</button>
+              <button type="button" data-mode="flow" class="active" aria-pressed="true">Pre-run</button>
               <button type="button" data-mode="inspect" aria-pressed="false">Inspect</button>
             </div>
           </div>
@@ -160,52 +160,73 @@
 
           <div class="flow-practice-slot flow-only" id="flowPracticeSlot"></div>
 
-          <aside class="analysis-card" id="analysisCard" aria-label="Running flow coach">
+          <section class="analysis-card" id="analysisCard" aria-label="Running flow coach">
             <section class="flow-coach flow-only" id="flowCoach" aria-labelledby="flow-coach-title">
               <div class="flow-coach-head">
-                <div>
-                  <p class="panel-index">Start with one feeling</p>
-                  <h2 id="flow-coach-title">What do you notice?</h2>
+                <div class="daily-context">
+                  <p class="panel-index" id="dailyDate">Before today’s run</p>
+                  <span id="dailyTheme">Quiet momentum</span>
                 </div>
+                <h2 id="flow-coach-title" tabindex="-1">What kind of run is this?</h2>
                 <div class="flow-selection">
-                  <p id="flowNeedPrompt">Choose the closest. One cue is enough.</p>
-                  <button id="changeNeedButton" type="button" hidden>Change</button>
+                  <p id="flowNeedPrompt">Choose the effort, not a target pace.</p>
+                  <button id="changeNeedButton" type="button" hidden>Start again</button>
                 </div>
               </div>
-              <div class="need-tabs" id="needTabs" role="group" aria-label="Choose what feels off"></div>
-              <p class="sr-only" id="flowStatus" role="status" aria-live="polite" aria-atomic="true">Choose one feeling.</p>
 
-              <div class="flow-practice" id="flowPractice" role="region" aria-label="Current cue practice">
-                <ol class="flow-steps" id="flowSteps" aria-label="Practice steps after choosing">
-                  <li data-step="see" class="active" aria-current="step"><b>1</b>See</li>
-                  <li data-step="feel"><b>2</b>Feel</li>
-                  <li data-step="release"><b>3</b>Let go</li>
-                  <li data-step="reflect"><b>4</b>Notice</li>
-                </ol>
+              <ol class="flow-steps" id="flowSteps" aria-label="Daily pre-run steps">
+                <li data-step="run" class="active" aria-current="step"><b>1</b><span>Run</span></li>
+                <li data-step="notice"><b>2</b><span>Notice</span></li>
+                <li data-step="see"><b>3</b><span>See</span></li>
+                <li data-step="feel"><b>4</b><span>Feel</span></li>
+                <li data-step="go"><b>5</b><span>Go</span></li>
+              </ol>
 
+              <div class="run-type-tabs" id="runTypeTabs" role="group" aria-label="Choose today’s run"></div>
+              <div class="need-tabs" id="needTabs" role="group" aria-label="Choose what is most noticeable"></div>
+              <details class="safety-check" id="safetyCheck" hidden>
+                <summary>Pain or feeling unwell?</summary>
+                <p>Stop and seek urgent medical advice for chest discomfort, faintness or unusual breathlessness. For new, severe or continuing pain—or pain that changes your gait—do not use a form cue to run through it; pause running and seek appropriate assessment.</p>
+                <a href="https://ausactive.org.au/policies-guidelines/adult-pre-exercise-screening-system/" target="_blank" rel="noreferrer">Australian pre-exercise guidance ↗</a>
+              </details>
+              <p class="sr-only" id="flowStatus" role="status" aria-live="polite" aria-atomic="true">Step 1 of 5. Run. Choose today’s effort.</p>
+
+              <div class="flow-practice" id="flowPractice" role="region" aria-label="Current cue practice" hidden>
                 <div class="flow-cue" id="flowCueCard">
                   <p id="flowCueLabel">See</p>
-                  <h3 id="flowCueText">Watch one relationship.</h3>
+                  <h3 id="flowCueText">One relationship for today.</h3>
                   <p id="flowCueSee">The pelvis keeps travelling while the support foot moves behind it.</p>
+                  <details class="flow-insight" id="flowInsight">
+                    <summary>Why this today</summary>
+                    <p id="flowInsightText"></p>
+                  </details>
                   <details class="flow-boundary" id="flowBoundary">
-                    <summary>Do not force</summary>
+                    <summary>Keep it easy</summary>
                     <p id="flowCueAvoid">Do not chase bounce, cadence or a perfect foot strike.</p>
                   </details>
-                  <div class="flow-reflect" id="flowReflect" hidden>
-                    <p>Compared with before:</p>
-                    <div role="group" aria-label="How the cue felt">
-                      <button type="button" data-reflection="easier">Easier · keep it</button>
-                      <button type="button" data-reflection="same">Same · another</button>
-                      <button type="button" data-reflection="worse">Worse · drop it</button>
-                    </div>
-                  </div>
                   <div class="cue-actions" id="cueActions">
-                    <button class="primary-flow-action" type="button" id="flowActionButton">Try this cue</button>
-                    <button type="button" id="anotherCueButton">Different cue</button>
+                    <button class="primary-flow-action" type="button" id="flowActionButton">Use this cue</button>
+                    <button type="button" id="anotherCueButton">Show another</button>
+                    <button type="button" id="flowBackButton">Back</button>
                   </div>
                 </div>
-                <div class="saved-cue" id="savedCue" hidden>
-                  <span>Today’s cue</span><b id="savedCueText"></b><button type="button" id="clearSavedCue">Clear</button>
+
+                <div class="completed-run" id="completedRun" hidden>
+                  <p class="panel-index">Ready</p>
+                  <h3 id="completedCue" tabindex="-1">Pockets level · ground behind</h3>
+                  <p id="completedGuidance">Visit it briefly as you settle. Then look ahead and let the run take over.</p>
+                  <p class="personal-insight" id="personalInsight" hidden></p>
+                  <details class="after-run" id="afterRun">
+                    <summary>When you’re back</summary>
+                    <p>How did the run feel when you briefly used the cue? This only shapes what the app offers again.</p>
+                    <div role="group" aria-label="How today’s cue felt">
+                      <button type="button" data-outcome="easier">Easier</button>
+                      <button type="button" data-outcome="same">No difference</button>
+                      <button type="button" data-outcome="worse">Worse</button>
+                    </div>
+                    <p id="outcomeResponse" aria-live="polite"></p>
+                  </details>
+                  <button class="restart-run" type="button" id="startAnotherRun">Set up another run</button>
                 </div>
               </div>
             </section>
@@ -292,7 +313,7 @@
               <div><span>Contact share</span><strong id="dutyMetric">31.9</strong><small>% of stride</small></div>
               <div><span>Vertical travel</span><strong id="bounceMetric">6.4</strong><small>centimetres</small></div>
             </div>
-          </aside>
+          </section>
         </section>
 
         <section class="principles inspection-only" aria-labelledby="principles-title">
