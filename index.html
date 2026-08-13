@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#18243d" />
     <meta
       name="description"
-      content="A frame-by-frame, evidence-aware reference for elite distance-running mechanics."
+      content="A frame-by-frame, evidence-aware reference for distance-running mechanics."
     />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2318243d'/%3E%3Cpath d='M17 43c9-2 15-8 17-19m-8 1 8-6 8 7m-9 0-9 10m10-10 11 5' fill='none' stroke='%23c45a2c' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='36' cy='13' r='4' fill='%23f5f1e8'/%3E%3C/svg%3E" />
-    <title>Rift Form Lab — elite distance mechanics</title>
+    <title>Rift Form Lab — distance-running mechanics</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body data-mode="flow">
     <a class="skip-link" href="#lab">Skip to mechanics lab</a>
 
     <div class="app-shell">
@@ -31,21 +31,27 @@
           </span>
         </a>
 
-        <div class="header-context" aria-label="Model context">
+        <div class="header-context">
           <span class="context-dot" aria-hidden="true"></span>
-          <span><b>190 cm reference</b><small>Kenya · Ethiopia · elite distance</small></span>
+          <span><b>Adjustable distance-running model</b><small>Illustrative · not a prescription</small></span>
         </div>
       </header>
 
-      <main id="lab">
+      <main id="lab" tabindex="-1">
         <section class="intro" aria-labelledby="page-title">
           <div>
-            <p class="kicker">Biomechanics made visible</p>
-            <h1 id="page-title">See the stride.<br /><em>Understand the system.</em></h1>
+            <p class="kicker">Your running flow studio</p>
+            <h1 id="page-title">Find your flow.</h1>
           </div>
-          <p class="intro-copy">
-            Study the relaxed, upright relationships seen in elite distance running. Choose a pace, isolate one phase and look at one relationship at a time.
-          </p>
+          <div class="intro-action">
+            <p class="intro-copy">
+              Choose a pace. Choose one feeling. Watch it, feel it, then let it go.
+            </p>
+            <div class="mode-tabs segmented" id="modeTabs" role="group" aria-label="Studio mode">
+              <button type="button" data-mode="flow" class="active" aria-pressed="true">Flow</button>
+              <button type="button" data-mode="inspect" aria-pressed="false">Inspect</button>
+            </div>
+          </div>
         </section>
 
         <section class="control-deck" aria-label="Motion controls">
@@ -55,6 +61,7 @@
               <small>Changes the mechanics</small>
             </div>
             <div class="segmented pace-tabs" id="paceTabs" role="group" aria-label="Pace preset"></div>
+            <select class="pace-select" id="paceSelect" aria-label="Pace preset"></select>
           </div>
 
           <div class="live-pace" aria-live="polite">
@@ -64,15 +71,16 @@
 
           <div class="control-group playback-control">
             <div class="control-label">
-              <span>Playback</span>
-              <small>Viewing speed only</small>
+              <span id="playbackLabel">Flow</span>
+              <small id="playbackHint">Viewing speed never changes the mechanics</small>
             </div>
             <div class="playback-row">
-              <button class="play-button" id="playButton" type="button" aria-label="Pause animation" aria-pressed="true">
+              <button class="play-button" id="playButton" type="button" aria-label="Pause animation">
                 <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
                 <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6Z" /></svg>
+                <span id="playButtonText">Pause flow</span>
               </button>
-              <div class="segmented speed-tabs" id="speedTabs" role="group" aria-label="Playback speed">
+              <div class="segmented speed-tabs inspection-only" id="speedTabs" role="group" aria-label="Playback speed">
                 <button type="button" data-speed="0.15" aria-pressed="false">0.15×</button>
                 <button type="button" data-speed="0.35" class="active" aria-pressed="true">0.35×</button>
                 <button type="button" data-speed="0.6" aria-pressed="false">0.6×</button>
@@ -87,16 +95,16 @@
           </button>
         </section>
 
-        <section class="lab-grid" aria-label="Interactive running form lab">
-          <article class="stage-card">
+        <section class="lab-grid" id="labGrid" aria-label="Interactive running form lab">
+          <article class="stage-card" id="stageCard">
             <div class="stage-toolbar">
               <div class="view-tabs" id="viewTabs" role="group" aria-label="Analysis view">
                 <button type="button" aria-pressed="true" data-view="side" class="active">Side</button>
                 <button type="button" aria-pressed="false" data-view="rear">Rear</button>
-                <button type="button" aria-pressed="false" data-view="contrast">Contrast</button>
+                <button class="inspection-only" type="button" aria-pressed="false" data-view="contrast">Contrast</button>
               </div>
 
-              <div class="overlay-buttons" id="overlayButtons" aria-label="Visual overlays">
+              <div class="overlay-buttons inspection-only" id="overlayButtons" role="group" aria-label="Visual overlays">
                 <button type="button" data-overlay="geometry" class="active" aria-pressed="true"><span class="overlay-swatch geometry"></span>Geometry</button>
                 <button type="button" data-overlay="forces" class="active" aria-pressed="true"><span class="overlay-swatch forces"></span>Forces</button>
                 <button type="button" data-overlay="trail" aria-pressed="false"><span class="overlay-swatch trail"></span>Trail</button>
@@ -104,7 +112,7 @@
             </div>
 
             <div class="stage" id="stage">
-              <canvas id="runnerCanvas" aria-label="Animated elite distance-running mechanics model" aria-describedby="canvasDescription"></canvas>
+              <canvas id="runnerCanvas" role="img" aria-label="Animated distance-running mechanics model" aria-describedby="canvasDescription">Animated running mechanics model. Use the description and controls beside the model to inspect each relationship.</canvas>
               <p class="sr-only" id="canvasDescription">Side-view model at easy pace. Load response. Whole-system focus.</p>
               <div class="stage-readout stage-readout-left">
                 <span id="stageViewLabel">Sagittal view</span>
@@ -119,18 +127,22 @@
                 <span><i class="legend-far"></i>Far side</span>
                 <span><i class="legend-vector"></i>Force</span>
               </div>
+              <div class="flow-stage-controls flow-only">
+                <button id="flowPauseButton" type="button">Pause</button>
+                <button class="flow-stage-action" id="flowStageActionButton" type="button">Let it go</button>
+              </div>
             </div>
 
             <div class="contrast-options" id="contrastOptions" hidden>
               <span>Compare against</span>
-              <div class="segmented">
+              <div class="segmented" role="group" aria-label="Contrast pattern">
                 <button type="button" data-contrast="overreach" class="active" aria-pressed="true">Over-reach</button>
                 <button type="button" data-contrast="waist" aria-pressed="false">Waist fold</button>
                 <button type="button" data-contrast="crossover" aria-pressed="false">Crossover</button>
               </div>
             </div>
 
-            <div class="timeline-panel">
+            <div class="timeline-panel inspection-only">
               <div class="timeline-topline">
                 <span>One stride · lead leg</span>
                 <output id="phasePercent" for="phaseSlider">10%</output>
@@ -142,12 +154,86 @@
                 </div>
                 <input id="phaseSlider" type="range" min="0" max="1000" value="100" aria-label="Scrub through one complete stride" />
               </div>
-              <div class="phase-buttons" id="phaseButtons" aria-label="Stride landmarks"></div>
+              <div class="phase-buttons" id="phaseButtons" role="group" aria-label="Stride landmarks"></div>
             </div>
           </article>
 
-          <aside class="analysis-card" aria-labelledby="analysis-title">
-            <div class="analysis-header">
+          <div class="flow-practice-slot flow-only" id="flowPracticeSlot"></div>
+
+          <aside class="analysis-card" id="analysisCard" aria-label="Running flow coach">
+            <section class="flow-coach flow-only" id="flowCoach" aria-labelledby="flow-coach-title">
+              <div class="flow-coach-head">
+                <div>
+                  <p class="panel-index">Start with one feeling</p>
+                  <h2 id="flow-coach-title">What do you notice?</h2>
+                </div>
+                <div class="flow-selection">
+                  <p id="flowNeedPrompt">Choose the closest. One cue is enough.</p>
+                  <button id="changeNeedButton" type="button" hidden>Change</button>
+                </div>
+              </div>
+              <div class="need-tabs" id="needTabs" role="group" aria-label="Choose what feels off"></div>
+              <p class="sr-only" id="flowStatus" role="status" aria-live="polite" aria-atomic="true">Choose one feeling.</p>
+
+              <div class="flow-practice" id="flowPractice" role="region" aria-label="Current cue practice">
+                <ol class="flow-steps" id="flowSteps" aria-label="Practice steps after choosing">
+                  <li data-step="see" class="active" aria-current="step"><b>1</b>See</li>
+                  <li data-step="feel"><b>2</b>Feel</li>
+                  <li data-step="release"><b>3</b>Let go</li>
+                  <li data-step="reflect"><b>4</b>Notice</li>
+                </ol>
+
+                <div class="flow-cue" id="flowCueCard">
+                  <p id="flowCueLabel">See</p>
+                  <h3 id="flowCueText">Watch one relationship.</h3>
+                  <p id="flowCueSee">The pelvis keeps travelling while the support foot moves behind it.</p>
+                  <details class="flow-boundary" id="flowBoundary">
+                    <summary>Do not force</summary>
+                    <p id="flowCueAvoid">Do not chase bounce, cadence or a perfect foot strike.</p>
+                  </details>
+                  <div class="flow-reflect" id="flowReflect" hidden>
+                    <p>Compared with before:</p>
+                    <div role="group" aria-label="How the cue felt">
+                      <button type="button" data-reflection="easier">Easier · keep it</button>
+                      <button type="button" data-reflection="same">Same · another</button>
+                      <button type="button" data-reflection="worse">Worse · drop it</button>
+                    </div>
+                  </div>
+                  <div class="cue-actions" id="cueActions">
+                    <button class="primary-flow-action" type="button" id="flowActionButton">Try this cue</button>
+                    <button type="button" id="anotherCueButton">Different cue</button>
+                  </div>
+                </div>
+                <div class="saved-cue" id="savedCue" hidden>
+                  <span>Today’s cue</span><b id="savedCueText"></b><button type="button" id="clearSavedCue">Clear</button>
+                </div>
+              </div>
+            </section>
+
+            <details class="tune-panel" id="tunePanel">
+              <summary>
+                <span>Adjust the reference</span>
+                <small>Illustrative comparison—not a target</small>
+              </summary>
+              <div class="tune-body">
+                <div class="tune-tabs" id="tuneTabs" role="group" aria-label="Model adjustment"></div>
+                <div class="tune-heading">
+                  <div>
+                    <span id="tuneLabel">Rhythm</span>
+                    <small id="tuneShort">steps/min</small>
+                  </div>
+                  <output id="tuneOutput" for="tuneSlider">174</output>
+                </div>
+                <input id="tuneSlider" type="range" min="-10" max="10" step="1" value="0" aria-label="Adjust rhythm" />
+                <div class="tune-scale" aria-hidden="true">
+                  <span id="tuneLow">Slower turnover</span><i></i><b>reference</b><i></i><span id="tuneHigh">Quicker turnover</span>
+                </div>
+                <p id="tuneDescription">Changes cadence at the chosen pace. Step length adapts with it.</p>
+                <button type="button" class="tune-reset" id="tuneResetButton">Use reference</button>
+              </div>
+            </details>
+
+            <div class="analysis-header inspection-only">
               <p class="panel-index">Current phase</p>
               <div class="phase-heading">
                 <span id="phaseNumber">02</span>
@@ -158,7 +244,7 @@
               </div>
             </div>
 
-            <div class="lens-tabs" id="lensTabs" role="group" aria-label="Coaching lens">
+            <div class="lens-tabs inspection-only" id="lensTabs" role="group" aria-label="Coaching lens">
               <button type="button" data-lens="system" class="active" aria-pressed="true">System</button>
               <button type="button" data-lens="posture" aria-pressed="false">Posture</button>
               <button type="button" data-lens="contact" aria-pressed="false">Contact</button>
@@ -166,7 +252,7 @@
               <button type="button" data-lens="arms" aria-pressed="false">Arms</button>
             </div>
 
-            <div class="observation">
+            <div class="observation inspection-only">
               <p class="observation-label">What matters</p>
               <h3 id="observationTitle">Accept load without sitting.</h3>
               <p id="observationText">The foot moves back beneath a quiet pelvis. The knee yields, the trunk stays stacked and forward speed is protected.</p>
@@ -176,13 +262,13 @@
               </div>
             </div>
 
-            <div class="joint-readout" aria-label="Live joint angles">
+            <div class="joint-readout inspection-only" role="group" aria-label="Live joint angles">
               <div><span>Hip</span><strong id="hipAngle">+14°</strong><small id="hipAngleName">flexion</small></div>
               <div><span>Knee</span><strong id="kneeAngle">35°</strong><small>flexion</small></div>
               <div><span>Ankle</span><strong id="ankleAngle">8°</strong><small id="ankleAngleName">dorsiflexion</small></div>
             </div>
 
-            <div class="trace-panel">
+            <div class="trace-panel inspection-only">
               <div class="trace-head">
                 <span>System trace</span>
                 <small>one lead-leg stride</small>
@@ -198,7 +284,7 @@
               </svg>
             </div>
 
-            <div class="metric-grid" aria-label="Pace mechanics">
+            <div class="metric-grid inspection-only" role="group" aria-label="Pace mechanics">
               <div><span>Cadence</span><strong id="cadenceMetric">174</strong><small>steps/min</small></div>
               <div><span>Contact</span><strong id="contactMetric">220</strong><small>milliseconds</small></div>
               <div><span>Flight</span><strong id="flightMetric">125</strong><small>milliseconds</small></div>
@@ -209,21 +295,21 @@
           </aside>
         </section>
 
-        <section class="principles" aria-labelledby="principles-title">
+        <section class="principles inspection-only" aria-labelledby="principles-title">
           <div class="section-intro">
             <p class="panel-index">Mechanics atlas</p>
             <h2 id="principles-title">One system. Five relationships.</h2>
-            <p>Form is not a pile of positions. Each relationship protects the next.</p>
+            <p>Form is not a pile of positions. These relationships help you inspect the stride as one moving system.</p>
           </div>
           <div class="principle-grid" id="principleGrid"></div>
         </section>
 
-        <section class="evidence-section" aria-labelledby="evidence-title">
+        <section class="evidence-section inspection-only" aria-labelledby="evidence-title">
           <div class="section-intro evidence-intro">
             <p class="panel-index">Evidence and boundaries</p>
             <h2 id="evidence-title">Admire the pattern.<br />Avoid the myth.</h2>
             <p>
-              This is a visual synthesis of elite distance mechanics, tuned with East African research. It is not a claim that Kenyan or Ethiopian runners share one genetic, national or “perfect” gait.
+              This visual synthesis is illustrative. Studies involving Kenyan, Ethiopian, Eritrean and other runners inform its evidence context and boundaries—not its anatomy, exact motion or a national “perfect” gait.
             </p>
           </div>
           <div class="evidence-grid" id="evidenceGrid"></div>
