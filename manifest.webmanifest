@@ -1,7 +1,7 @@
 {
   "name": "Rift Form Lab",
   "short_name": "Form Lab",
-  "description": "Frame-by-frame elite distance-running mechanics reference.",
+  "description": "A calm daily pre-run setup and frame-by-frame distance-running mechanics reference.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f1e8",

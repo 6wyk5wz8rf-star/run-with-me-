@@ -277,8 +277,8 @@ export const PROFILE = Object.freeze({
 export const FLOW_NEEDS = Object.freeze([
   {
     id: 'flow',
-    label: 'Just find rhythm',
-    prompt: 'I want the stride to feel easier.',
+    label: 'Nothing · just flow',
+    prompt: 'Nothing needs fixing. I just want an easy way into the run.',
     lens: 'system',
     view: 'side',
     phase: 'midstance',
@@ -286,8 +286,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'reach',
-    label: 'Landing out front',
-    prompt: 'My landing feels loud or braking.',
+    label: 'Landing feels loud',
+    prompt: 'Contact feels louder or more reaching than I want today.',
     lens: 'contact',
     view: 'side',
     phase: 0.012,
@@ -295,8 +295,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'sit',
-    label: 'Low or folded',
-    prompt: 'I feel behind the step.',
+    label: 'I feel folded',
+    prompt: 'I feel low, folded or a little behind the step.',
     lens: 'posture',
     view: 'side',
     phase: 'midstance',
@@ -304,8 +304,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'knees',
-    label: 'Knees brush',
-    prompt: 'My legs feel crowded.',
+    label: 'Legs feel crowded',
+    prompt: 'My knees or feet feel as though they have too little room.',
     lens: 'contact',
     view: 'rear',
     phase: 'midstance',
@@ -313,8 +313,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'arms',
-    label: 'Arms cross',
-    prompt: 'My hands sweep across my chest.',
+    label: 'Arms feel busy',
+    prompt: 'My shoulders or hands feel busy across the front of me.',
     lens: 'arms',
     view: 'rear',
     phase: 0.1,
@@ -322,8 +322,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'tension',
-    label: 'Upper body tight',
-    prompt: 'My jaw, hands or shoulders feel held.',
+    label: 'Upper body feels held',
+    prompt: 'My jaw, hands or shoulders feel held rather than easy.',
     lens: 'arms',
     view: 'side',
     phase: 0.1,
@@ -331,8 +331,8 @@ export const FLOW_NEEDS = Object.freeze([
   },
   {
     id: 'overthink',
-    label: 'Too many thoughts',
-    prompt: 'I am monitoring every part.',
+    label: 'Mind feels busy',
+    prompt: 'I am monitoring the stride instead of simply running.',
     lens: 'system',
     view: 'side',
     phase: 0.18,
@@ -345,7 +345,7 @@ export const FLOW_CUES = Object.freeze({
     {
       feel: 'Pockets level · ground behind',
       see: 'The pelvis keeps travelling while the support foot moves behind it.',
-      avoid: 'Do not chase bounce, cadence or a perfect foot strike.',
+      avoid: '“Pockets level” is a sensation of balance, not literal symmetry. Do not chase bounce, cadence or a perfect foot strike.',
       release: 'Eyes ahead · let rhythm return.'
     },
     {
@@ -396,7 +396,7 @@ export const FLOW_CUES = Object.freeze({
   sit: Object.freeze([
     {
       feel: 'Crown tall · hips travel',
-      see: 'Head, ribs and pelvis move as one long column over support.',
+      see: 'Head, ribs and pelvis remain calmly related while normal breathing and rotation continue.',
       avoid: 'Do not arch the back or lift the chest hard.',
       release: 'Look far ahead · let height remain.'
     },
@@ -414,7 +414,7 @@ export const FLOW_CUES = Object.freeze({
     },
     {
       feel: 'Knee soft · pockets through',
-      see: 'Support is brief and the body keeps travelling through the step.',
+      see: 'Support passes beneath you while the body keeps travelling through the step.',
       avoid: 'Do not rush the foot off the ground.',
       release: 'Run forwards · stop arranging the pose.'
     }
@@ -428,14 +428,14 @@ export const FLOW_CUES = Object.freeze({
     },
     {
       feel: 'Knees keep their lane',
-      see: 'The supporting knee and foot stay within the same narrow side corridor.',
+      see: 'The model shows each knee and foot travelling in its own narrow forward corridor.',
       avoid: 'Do not hold the knees apart with tension.',
       release: 'Let each leg find its lane.'
     },
     {
-      feel: 'Pockets level · feet stay separate',
-      see: 'A calm pelvis lets each leg swing through without crossing the centre line.',
-      avoid: 'Do not police every step or widen the stance deliberately.',
+      feel: 'Pockets balanced · feet stay separate',
+      see: 'A sense of balance at the pockets can accompany two distinct forward leg paths.',
+      avoid: 'Balanced is a feeling, not literal symmetry. Do not police every step or widen the stance deliberately.',
       release: 'Notice the corridor · then look ahead.'
     },
     {
@@ -460,7 +460,7 @@ export const FLOW_CUES = Object.freeze({
     },
     {
       feel: 'Shoulders quiet · elbows pulse',
-      see: 'The arms balance the legs without lifting or twisting the upper body.',
+      see: 'The arms counterbalance the legs while normal upper-body rotation continues.',
       avoid: 'Do not drive the hands forwards.',
       release: 'Drop the cue · keep the balance.'
     },
@@ -486,7 +486,7 @@ export const FLOW_CUES = Object.freeze({
     },
     {
       feel: 'Long exhale · hands ungrip',
-      see: 'The ribcage can expand without disturbing the head or pelvis.',
+      see: 'The ribcage can expand while the head and pelvis continue their natural movement.',
       avoid: 'Do not control every breath.',
       release: 'Let the next breath arrive itself.'
     },
@@ -507,7 +507,7 @@ export const FLOW_CUES = Object.freeze({
     {
       feel: 'Pockets level · then run',
       see: 'A calm pelvis gives the legs room without constant correction.',
-      avoid: 'You do not need to monitor every joint.',
+      avoid: '“Pockets level” is a sensation of balance, not literal symmetry. You do not need to monitor every joint.',
       release: 'Look ahead · just run.'
     },
     {

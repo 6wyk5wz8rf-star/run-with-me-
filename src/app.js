@@ -1,6 +1,7 @@
 import {
   DEFAULT_TUNING,
   EVIDENCE,
+  FLOW_CUES,
   FLOW_NEEDS,
   PACE_PRESETS,
   PRINCIPLES,
@@ -20,8 +21,22 @@ import {
 } from './data.js';
 import { buildTrace, computeSidePose, wrap01 } from './kinematics.js';
 import { renderStage } from './renderer.js';
+import {
+  PRE_RUN_STEPS,
+  RUN_TYPES,
+  buildDailyPlan,
+  createDailySession,
+  getRunType,
+  localDateKey,
+  mostFrequentNeed,
+  previousPreRunStep,
+  sanitiseDailyHistory,
+  sanitiseDailySession
+} from './pre-run.js';
 
 const STORAGE_KEY = 'rift-form-lab-preferences-v1';
+const DAILY_STORAGE_KEY = 'rift-form-lab-daily-v1';
+const HISTORY_STORAGE_KEY = 'rift-form-lab-history-v1';
 const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 const compactLayout = window.matchMedia('(max-width: 820px)');
 let prefersReducedMotion = motionPreference.matches;
@@ -39,16 +54,33 @@ function loadPreferences() {
   }
 }
 
+function loadLocalJSON(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null');
+  } catch {
+    return null;
+  }
+}
+
 const saved = loadPreferences();
+const today = new Date();
+const dailySession = sanitiseDailySession(
+  loadLocalJSON(DAILY_STORAGE_KEY),
+  localDateKey(today)
+);
+const dailyHistory = sanitiseDailyHistory(loadLocalJSON(HISTORY_STORAGE_KEY));
+const savedRunType = getRunType(dailySession.runType);
 const savedPace = Number(saved?.paceIndex);
-const savedNeed = FLOW_NEEDS.some((item) => item.id === saved?.flowNeed)
-  ? saved.flowNeed
-  : 'flow';
+const savedNeed = dailySession.needId || (
+  FLOW_NEEDS.some((item) => item.id === saved?.flowNeed) ? saved.flowNeed : 'flow'
+);
 
 const state = {
   mode: saved?.mode === 'inspect' ? 'inspect' : 'flow',
   paceIndex:
-    Number.isInteger(savedPace) && savedPace >= 0 && savedPace < PACE_PRESETS.length
+    savedRunType
+      ? savedRunType.paceIndex
+      : Number.isInteger(savedPace) && savedPace >= 0 && savedPace < PACE_PRESETS.length
       ? savedPace
       : 1,
   phase: 0.1,
@@ -58,10 +90,11 @@ const state = {
   lens: getFlowNeed(savedNeed).lens,
   contrast: 'overreach',
   flowNeed: savedNeed,
-  flowStep: 'choose',
+  flowStep: dailySession.step,
+  daily: dailySession,
+  history: dailyHistory,
   cueIndexes: sanitiseCueIndexes(saved?.cueIndexes),
   savedCue: sanitiseSavedCue(saved?.savedCue),
-  reflection: null,
   activeTune: TUNE_CONTROLS.some((item) => item.id === saved?.activeTune)
     ? saved.activeTune
     : 'rhythm',
@@ -107,7 +140,12 @@ const elements = Object.fromEntries(
     'stageFocusLabel',
     'stagePhaseLabel',
     'canvasDescription',
+    'dailyDate',
+    'dailyTheme',
+    'flow-coach-title',
+    'runTypeTabs',
     'needTabs',
+    'safetyCheck',
     'flowNeedPrompt',
     'flowStatus',
     'changeNeedButton',
@@ -116,15 +154,21 @@ const elements = Object.fromEntries(
     'flowCueLabel',
     'flowCueText',
     'flowCueSee',
+    'flowInsight',
+    'flowInsightText',
     'flowBoundary',
     'flowCueAvoid',
-    'flowReflect',
     'cueActions',
     'flowActionButton',
     'anotherCueButton',
-    'savedCue',
-    'savedCueText',
-    'clearSavedCue',
+    'flowBackButton',
+    'completedRun',
+    'completedCue',
+    'completedGuidance',
+    'personalInsight',
+    'afterRun',
+    'outcomeResponse',
+    'startAnotherRun',
     'tunePanel',
     'tuneTabs',
     'tuneLabel',
@@ -165,7 +209,10 @@ const basePace = () => PACE_PRESETS[state.paceIndex];
 let paceCache = tunePace(basePace(), state.tuning);
 const currentPace = () => paceCache;
 const refreshPace = () => {
-  paceCache = tunePace(basePace(), state.tuning);
+  paceCache = tunePace(
+    basePace(),
+    state.mode === 'flow' ? DEFAULT_TUNING : state.tuning
+  );
   return paceCache;
 };
 
@@ -188,7 +235,7 @@ function syncResponsiveLayout() {
   }
 }
 
-function focusSoon(element, { scroll = false } = {}) {
+function focusSoon(element, { scroll = false, block = 'center' } = {}) {
   const focus = () => {
     if (!element || element.hidden || element.getClientRects().length === 0) return;
     element.focus({ preventScroll: !scroll });
@@ -198,16 +245,78 @@ function focusSoon(element, { scroll = false } = {}) {
     if (document.activeElement !== element) focus();
     if (scroll && element?.getClientRects().length) {
       element.scrollIntoView({
-        block: 'center',
+        block,
         behavior: prefersReducedMotion ? 'auto' : 'smooth'
       });
     }
   });
 }
 
+function dateFromLocalKey(dateKey) {
+  const [year, month, day] = String(dateKey).split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function currentDailyPlan() {
+  const cueCount = FLOW_CUES[state.flowNeed]?.length || FLOW_CUES.flow.length;
+  const priorForNeed = state.history.filter(
+    (entry) =>
+      entry.needId === state.flowNeed &&
+      (entry.dateKey !== state.daily.dateKey || entry.runNumber !== state.daily.runNumber)
+  );
+  const recentIndexes = priorForNeed.slice(-2).map((entry) => entry.cueIndex);
+  const worseIndexes = priorForNeed
+    .filter((entry) => entry.outcome === 'worse')
+    .map((entry) => entry.cueIndex);
+  const exclusions = [...new Set([...worseIndexes, ...recentIndexes])];
+  exclusions.hardCount = new Set(worseIndexes).size;
+  return buildDailyPlan(
+    dateFromLocalKey(state.daily.dateKey),
+    state.flowNeed,
+    cueCount,
+    state.daily.cueOffset,
+    exclusions
+  );
+}
+
 function nextCue() {
-  const current = Number(state.cueIndexes[state.flowNeed]) || 0;
-  state.cueIndexes[state.flowNeed] = current + 1;
+  const candidateCount = currentDailyPlan().candidateCount;
+  state.daily.cueOffset = candidateCount > 1
+    ? (state.daily.cueOffset + 1) % candidateCount
+    : 0;
+  persistDailySession();
+}
+
+function currentCueAndPlan() {
+  const plan = currentDailyPlan();
+  if (plan.cueIndex === null) {
+    return {
+      plan,
+      cue: {
+        feel: 'Look ahead · run natural',
+        see: 'No form cue is offered today. Let the environment carry your attention.',
+        avoid: 'Do not search for another correction. Ordinary running is enough.',
+        release: 'Leave the body alone · follow the route.'
+      }
+    };
+  }
+  return { plan, cue: getFlowCue(state.flowNeed, plan.cueIndex) };
+}
+
+function persistDailySession() {
+  try {
+    localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(state.daily));
+  } catch {
+    // The daily setup still works in memory when storage is unavailable.
+  }
+}
+
+function persistHistory() {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.history));
+  } catch {
+    // Reflection history is optional and remains device-local.
+  }
 }
 let needsRender = true;
 let animationReady = false;
@@ -301,6 +410,19 @@ function buildNeedTabs() {
   }
 }
 
+function buildRunTypeTabs() {
+  elements.runTypeTabs.innerHTML = RUN_TYPES.map(
+    (run) => `
+      <button type="button" data-run-type="${run.id}" aria-pressed="${run.id === state.daily.runType}" class="${run.id === state.daily.runType ? 'active' : ''}">
+        <b>${run.label}</b><span>${run.note}</span>
+      </button>`
+  ).join('');
+
+  for (const button of elements.runTypeTabs.querySelectorAll('button')) {
+    button.addEventListener('click', () => selectRunType(button.dataset.runType));
+  }
+}
+
 function buildTuneTabs() {
   elements.tuneTabs.innerHTML = TUNE_CONTROLS.map(
     (control) => `
@@ -390,138 +512,270 @@ function syncViewButtons() {
   elements.contrastOptions.hidden = state.view !== 'contrast';
 }
 
+function formatDailyDate(date = new Date()) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short'
+  }).format(date);
+}
+
+function selectRunType(id) {
+  const run = getRunType(id);
+  if (!run) return;
+  state.daily.runType = run.id;
+  state.daily.needId = null;
+  state.daily.cueOffset = 0;
+  state.daily.completed = false;
+  state.daily.completedAt = null;
+  state.daily.outcome = null;
+  state.paceIndex = run.paceIndex;
+  buildRunTypeTabs();
+  persistDailySession();
+  persistPreferences();
+  updatePaceUI();
+  setFlowStep('notice');
+  focusSoon(elements['flow-coach-title'], {
+    scroll: compactLayout.matches,
+    block: 'start'
+  });
+}
+
 function setFlowNeed(id) {
   const need = getFlowNeed(id);
+  const changed = state.daily.needId !== need.id;
   state.flowNeed = need.id;
+  state.daily.needId = need.id;
+  if (changed) state.daily.cueOffset = 0;
+  state.daily.completed = false;
+  state.daily.completedAt = null;
+  state.daily.outcome = null;
   state.lens = need.lens;
   state.view = need.view;
   state.activeTune = need.tune || state.activeTune;
-  state.flowStep = 'see';
-  state.reflection = null;
   state.phase = flowPhase(need, currentPace());
   state.playing = false;
+  persistDailySession();
   syncLensButtons();
   syncViewButtons();
   syncPlayButton();
-  updateFlowUI();
   updateTuneUI();
-  updateFrameUI();
   persistPreferences();
-  requestRender();
+  setFlowStep('see');
+  focusSoon(elements['flow-coach-title'], {
+    scroll: compactLayout.matches,
+    block: 'start'
+  });
 }
 
 function setFlowStep(step) {
-  if (!['choose', 'see', 'feel', 'release', 'reflect'].includes(step)) return;
+  if (!PRE_RUN_STEPS.includes(step)) return;
   state.flowStep = step;
-  if (step === 'choose') {
-    state.playing = false;
-  } else if (step === 'see') {
+  state.daily.step = step;
+  if (step === 'see') {
     state.phase = flowPhase(getFlowNeed(state.flowNeed), currentPace());
     state.playing = false;
-  } else if (step === 'feel' || step === 'release') {
+  } else if (step === 'feel') {
     state.playing = !prefersReducedMotion;
   } else {
     state.playing = false;
   }
-  if (step !== 'reflect') {
-    state.reflection = null;
-  }
+  persistDailySession();
   syncPlayButton();
   updateFlowUI();
   updateFrameUI();
   requestRender();
 }
 
+function updateHistoryEntry() {
+  if (!state.daily.runType || !state.daily.needId) return;
+  const plan = currentDailyPlan();
+  if (plan.cueIndex === null) return;
+  const entry = {
+    dateKey: state.daily.dateKey,
+    runNumber: state.daily.runNumber,
+    runType: state.daily.runType,
+    needId: state.daily.needId,
+    cueIndex: plan.cueIndex,
+    outcome: state.daily.outcome
+  };
+  state.history = sanitiseDailyHistory([
+    ...state.history.filter(
+      (item) =>
+        item.dateKey !== entry.dateKey || item.runNumber !== entry.runNumber
+    ),
+    entry
+  ]);
+  persistHistory();
+}
+
+function completeDailySetup() {
+  const { plan } = currentCueAndPlan();
+  state.daily.step = 'go';
+  state.flowStep = 'go';
+  state.daily.completed = true;
+  state.daily.completedAt = new Date().toISOString();
+  state.savedCue = plan.cueIndex === null
+    ? null
+    : { needId: state.flowNeed, index: plan.cueIndex };
+  state.playing = false;
+  persistDailySession();
+  persistPreferences();
+  updateHistoryEntry();
+  syncPlayButton();
+  updateFlowUI();
+  requestRender();
+  focusSoon(elements.completedCue);
+}
+
+function restartDailySetup({ anotherRun = false } = {}) {
+  const previousRunNumber = state.daily.runNumber;
+  state.daily = createDailySession(localDateKey());
+  state.daily.runNumber = anotherRun
+    ? previousRunNumber + 1
+    : previousRunNumber;
+  state.flowStep = 'run';
+  state.flowNeed = 'flow';
+  state.view = getFlowNeed('flow').view;
+  state.lens = getFlowNeed('flow').lens;
+  state.playing = false;
+  persistDailySession();
+  buildRunTypeTabs();
+  syncViewButtons();
+  syncLensButtons();
+  syncPlayButton();
+  updateFlowUI();
+  updateFrameUI();
+  requestRender();
+  focusSoon(elements['flow-coach-title'], {
+    scroll: compactLayout.matches,
+    block: 'start'
+  });
+}
+
 function updateFlowUI() {
+  const sessionDate = dateFromLocalKey(state.daily.dateKey);
   const need = getFlowNeed(state.flowNeed);
-  const cueIndex = Number(state.cueIndexes[need.id]) || 0;
-  const cue = getFlowCue(need.id, cueIndex);
+  const { plan, cue } = currentCueAndPlan();
+  const run = getRunType(state.daily.runType);
+  const currentIndex = PRE_RUN_STEPS.indexOf(state.flowStep);
+  const titles = {
+    run: 'What kind of run is this?',
+    notice: 'What is most noticeable?',
+    see: 'See one relationship.',
+    feel: 'Try it once.',
+    go: state.daily.completed ? 'You are ready.' : 'Take one thing.'
+  };
+  const prompts = {
+    run: 'Choose the effort, not a target pace.',
+    notice: 'Choose one—or choose nothing. This is a feeling, not a diagnosis.',
+    see: need.prompt,
+    feel: 'About ten seconds. This primes attention; it is not your physical warm-up.',
+    go: state.daily.completed
+      ? 'Nothing else to solve before you leave.'
+      : 'Use it briefly, then let the cue disappear.'
+  };
+
   document.body.dataset.flowStep = state.flowStep;
   document.body.dataset.flowNeed = need.id;
-  elements.flowNeedPrompt.textContent =
-    state.flowStep === 'choose' ? 'Choose the closest. One cue is enough.' : need.prompt;
-  elements.changeNeedButton.hidden = state.flowStep === 'choose';
+  document.body.dataset.flowComplete = String(state.daily.completed);
+  const runCountLabel = state.daily.runNumber
+    ? ` · run ${state.daily.runNumber + 1}`
+    : '';
+  elements.dailyDate.textContent = `${formatDailyDate(sessionDate)} · before your run${runCountLabel}`;
+  elements.dailyTheme.textContent = plan.theme;
+  elements['flow-coach-title'].textContent = titles[state.flowStep];
+  elements.flowNeedPrompt.textContent = prompts[state.flowStep];
+  elements.changeNeedButton.hidden = state.flowStep === 'run' && !state.daily.completed;
 
+  for (const button of elements.runTypeTabs.querySelectorAll('button')) {
+    const active = button.dataset.runType === state.daily.runType;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
   for (const button of elements.needTabs.querySelectorAll('button')) {
-    const active =
-      state.flowStep !== 'choose' && button.dataset.need === state.flowNeed;
+    const active = button.dataset.need === state.daily.needId;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   }
   for (const marker of elements.flowSteps.querySelectorAll('[data-step]')) {
+    const index = PRE_RUN_STEPS.indexOf(marker.dataset.step);
     const active = marker.dataset.step === state.flowStep;
     marker.classList.toggle('active', active);
+    marker.classList.toggle('complete', index < currentIndex || (state.daily.completed && index === currentIndex));
     if (active) marker.setAttribute('aria-current', 'step');
     else marker.removeAttribute('aria-current');
   }
 
-  elements.flowSteps.hidden = state.flowStep === 'choose';
-  elements.flowCueCard.hidden = state.flowStep === 'choose';
+  elements.runTypeTabs.hidden = state.flowStep !== 'run' || state.daily.completed;
+  elements.needTabs.hidden = state.flowStep !== 'notice' || state.daily.completed;
+  elements.safetyCheck.hidden = state.flowStep !== 'notice' || state.daily.completed;
+  elements.flowPractice.hidden = !['see', 'feel', 'go'].includes(state.flowStep);
+  elements.flowCueCard.hidden = ['run', 'notice'].includes(state.flowStep) || state.daily.completed;
+  elements.completedRun.hidden = !(state.flowStep === 'go' && state.daily.completed);
   elements.flowCueCard.dataset.step = state.flowStep;
-  elements.flowBoundary.hidden = state.flowStep !== 'see';
-  elements.flowReflect.hidden =
-    state.flowStep !== 'reflect' || Boolean(state.reflection);
-  elements.cueActions.hidden =
-    state.flowStep === 'reflect' && !state.reflection;
-  elements.anotherCueButton.hidden = state.flowStep !== 'feel';
+  elements.flowInsight.hidden = state.flowStep !== 'see';
+  elements.flowBoundary.hidden = !['see', 'feel'].includes(state.flowStep);
+  elements.anotherCueButton.hidden = state.flowStep !== 'see';
+  elements.flowBackButton.hidden = !['see', 'feel', 'go'].includes(state.flowStep);
 
   if (state.flowStep === 'see') {
-    elements.flowCueLabel.textContent = 'See';
-    elements.flowCueText.textContent = 'Watch one relationship.';
-    elements.flowCueSee.textContent = cue.see;
-    elements.flowActionButton.textContent = 'Try this cue';
-  } else if (state.flowStep === 'release') {
-    elements.flowCueLabel.textContent = 'Let go';
-    elements.flowCueText.textContent = cue.release;
-    elements.flowCueSee.textContent = 'Nothing to correct. Run without checking.';
-    elements.flowActionButton.textContent = 'How did that feel?';
-  } else if (state.flowStep === 'reflect') {
-    elements.flowCueLabel.textContent = 'Notice';
-    elements.flowCueText.textContent = state.reflection
-      ? state.reflection === 'easier'
-        ? 'Keep what helped · leave the rest.'
-        : state.reflection === 'same'
-          ? 'No change is useful information.'
-          : 'Drop this cue. Your stride wins.'
-      : 'How did that feel?';
-    elements.flowCueSee.textContent = state.reflection
-      ? state.reflection === 'easier'
-        ? 'Save it for today, then use it briefly—not every step.'
-        : 'Try a different cue or return to your natural stride.'
-      : 'Compare with how you felt before, not with a perfect pose.';
-    if (state.reflection) {
-      elements.flowActionButton.textContent =
-        state.reflection === 'easier' ? 'Return to choices' : 'Try another cue';
-      elements.anotherCueButton.hidden = true;
-    }
-  } else {
-    elements.flowCueLabel.textContent = 'Feel';
+    elements.flowCueLabel.textContent = 'Today’s relationship';
     elements.flowCueText.textContent = cue.feel;
-    elements.flowCueSee.textContent = 'Use it for a few strides. Nothing else.';
-    elements.flowActionButton.textContent = 'Let it go';
+    elements.flowCueSee.textContent = cue.see;
+    elements.flowInsightText.textContent = `${plan.insight} ${
+      run?.id === 'workout'
+        ? 'For faster work, experiment only during the easy warm-up.'
+        : 'For today, one brief experiment is enough.'
+    }`;
+    elements.flowCueAvoid.textContent = cue.avoid;
+    elements.flowActionButton.textContent = plan.cueIndex === null
+      ? 'Run without a cue'
+      : 'Use this cue';
+    elements.anotherCueButton.textContent = 'Show another';
+    elements.anotherCueButton.hidden = plan.candidateCount < 2;
+  } else if (state.flowStep === 'feel') {
+    elements.flowCueLabel.textContent = 'Small rehearsal';
+    elements.flowCueText.textContent = plan.rehearsal;
+    elements.flowCueSee.textContent = 'Do it once, gently. There is nothing to perfect.';
+    elements.flowCueAvoid.textContent = cue.avoid;
+    elements.flowActionButton.textContent = 'Done';
+    elements.anotherCueButton.textContent = 'Skip rehearsal';
+    elements.anotherCueButton.hidden = false;
+  } else if (state.flowStep === 'go') {
+    elements.flowCueLabel.textContent = 'Today’s cue';
+    elements.flowCueText.textContent = cue.feel;
+    elements.flowCueSee.textContent = `${cue.release} ${run?.launch || RUN_TYPES[1].launch} If it feels tighter or worse, drop it immediately.`;
+    elements.flowActionButton.textContent = 'Ready to run';
   }
 
-  elements.flowCueAvoid.textContent = cue.avoid;
-  const stepName = {
-    choose: 'Choose',
-    see: 'See',
-    feel: 'Feel',
-    release: 'Let go',
-    reflect: 'Notice'
-  }[state.flowStep];
-  elements.flowStatus.textContent = `${stepName}. ${
-    state.flowStep === 'choose'
-      ? 'Choose one feeling.'
-      : `${elements.flowCueText.textContent} ${elements.flowCueSee.textContent}`
-  }`;
-  elements.flowStageActionButton.textContent =
-    state.flowStep === 'release' ? 'How did that feel?' : 'Let it go';
-  const savedCue = state.savedCue
-    ? getFlowCue(state.savedCue.needId, state.savedCue.index)
-    : null;
-  elements.savedCue.hidden = !savedCue;
-  elements.flowPractice.hidden = state.flowStep === 'choose' && !savedCue;
-  if (savedCue) elements.savedCueText.textContent = savedCue.feel;
+  elements.flowStageActionButton.textContent = 'Done';
+  elements.flowStatus.textContent = `Step ${currentIndex + 1} of 5. ${titles[state.flowStep]} ${prompts[state.flowStep]}`;
+
+  if (state.daily.completed) {
+    elements.completedCue.textContent = cue.feel;
+    elements.completedGuidance.textContent = `${cue.release} ${run?.launch || RUN_TYPES[1].launch} If it feels tighter or worse, drop it immediately.`;
+    const pattern = mostFrequentNeed(state.history);
+    if (pattern) {
+      elements.personalInsight.hidden = false;
+      elements.personalInsight.textContent = `Recent attention · you chose “${getFlowNeed(pattern.needId).label}” on ${pattern.count} of your last ${pattern.total} setups. This tracks where attention went—not a gait finding or score.`;
+    } else {
+      elements.personalInsight.hidden = true;
+    }
+    for (const button of elements.afterRun.querySelectorAll('[data-outcome]')) {
+      const active = button.dataset.outcome === state.daily.outcome;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+    elements.outcomeResponse.textContent = state.daily.outcome
+      ? state.daily.outcome === 'easier'
+        ? 'Keep it available, but give it space before it returns.'
+        : state.daily.outcome === 'same'
+          ? 'No difference is useful information. Nothing needs forcing.'
+          : 'That cue will not be treated as a solution. Your natural stride wins.'
+      : '';
+    elements.afterRun.hidden = plan.cueIndex === null;
+  }
 }
 
 function tracePath(points, xMap, yMap) {
@@ -670,8 +924,8 @@ function updateFrameUI() {
   };
   elements.stageViewLabel.textContent = viewLabels[state.view];
   elements.stageFocusLabel.textContent =
-    state.mode === 'flow' && state.flowStep === 'release'
-      ? 'Whole stride · cue released'
+    state.mode === 'flow' && state.flowStep === 'feel'
+      ? 'Whole stride · cue in motion'
       : focusLabels[state.lens];
   const contrastDescriptions = {
     overreach: 'Comparison: the foot lands farther ahead of the pelvis with more braking.',
@@ -681,7 +935,10 @@ function updateFrameUI() {
   const contrastDescription = state.view === 'contrast'
     ? ` ${contrastDescriptions[state.contrast]}`
     : '';
-  elements.canvasDescription.textContent = `${viewLabels[state.view]} model at ${pace.label.toLowerCase()} pace, ${pace.pace} per kilometre. ${phaseInfo.label}. ${focusLabels[state.lens]} focus.${contrastDescription}`;
+  const flowDescription = state.mode === 'flow' && ['see', 'feel'].includes(state.flowStep)
+    ? ` Selected relationship: ${currentCueAndPlan().cue.feel}.`
+    : '';
+  elements.canvasDescription.textContent = `${viewLabels[state.view]} model at ${pace.label.toLowerCase()} pace, ${pace.pace} per kilometre. ${phaseInfo.label}. ${focusLabels[state.lens]} focus.${contrastDescription}${flowDescription}`;
 
   for (const button of elements.phaseButtons.querySelectorAll('button')) {
     const active = button.dataset.phaseId === phaseInfo.id;
@@ -710,6 +967,11 @@ function syncPlayButton() {
 
 function setMode(mode) {
   state.mode = mode === 'inspect' ? 'inspect' : 'flow';
+  if (state.mode === 'flow') {
+    const run = getRunType(state.daily.runType);
+    if (run) state.paceIndex = run.paceIndex;
+  }
+  refreshPace();
   document.body.dataset.mode = state.mode;
   for (const button of elements.modeTabs.querySelectorAll('button')) {
     const active = button.dataset.mode === state.mode;
@@ -720,13 +982,11 @@ function setMode(mode) {
     const need = getFlowNeed(state.flowNeed);
     state.view = need.view;
     state.lens = need.lens;
-    if (state.flowStep === 'choose' || state.flowStep === 'see') {
+    if (state.flowStep === 'see') {
       state.phase = flowPhase(need, currentPace());
-      state.playing = false;
-    } else if (state.flowStep === 'feel' || state.flowStep === 'release') {
-      state.playing = !prefersReducedMotion;
     }
-    elements.playbackLabel.textContent = 'Flow';
+    state.playing = false;
+    elements.playbackLabel.textContent = 'Pre-run';
     elements.playbackHint.textContent = 'Viewing speed never changes the mechanics';
   } else {
     elements.playbackLabel.textContent = 'Playback';
@@ -740,7 +1000,7 @@ function setMode(mode) {
   syncViewButtons();
   syncLensButtons();
   syncPlayButton();
-  updateFrameUI();
+  updatePaceUI();
   persistPreferences();
   requestRender();
 }
@@ -756,14 +1016,17 @@ function setContrastPhase() {
 }
 
 elements.playButton.addEventListener('click', () => {
+  if (state.mode === 'flow') {
+    if (state.flowStep === 'feel') {
+      state.playing = !state.playing;
+      syncPlayButton();
+      requestRender();
+    }
+    return;
+  }
   if (state.view === 'contrast') {
     state.view = 'side';
     syncViewButtons();
-  }
-  if (state.mode === 'flow' && state.flowStep === 'choose') return;
-  if (state.mode === 'flow' && state.flowStep === 'see') {
-    setFlowStep('feel');
-    return;
   }
   state.playing = !state.playing;
   syncPlayButton();
@@ -771,15 +1034,11 @@ elements.playButton.addEventListener('click', () => {
 });
 
 elements.resetButton.addEventListener('click', () => {
-  state.mode = 'flow';
+  state.mode = 'inspect';
   state.paceIndex = 1;
   state.phase = 0.1;
   state.playback = 0.35;
-  state.flowNeed = 'flow';
-  state.flowStep = 'choose';
   state.cueIndexes = {};
-  state.savedCue = null;
-  state.reflection = null;
   state.activeTune = 'rhythm';
   state.tuning = { ...DEFAULT_TUNING };
   state.view = 'side';
@@ -810,11 +1069,11 @@ elements.resetButton.addEventListener('click', () => {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   }
-  setMode('flow');
+  setMode('inspect');
   updateFlowUI();
   updateTuneUI();
   updatePaceUI();
-  focusSoon(elements.needTabs.querySelector('button'));
+  focusSoon(elements.resetButton);
 });
 
 for (const button of elements.modeTabs.querySelectorAll('button')) {
@@ -877,35 +1136,28 @@ for (const button of elements.contrastOptions.querySelectorAll('button')) {
 elements.flowActionButton.addEventListener('click', () => {
   if (state.flowStep === 'see') {
     setFlowStep('feel');
-    focusSoon(elements.flowStageActionButton, { scroll: compactLayout.matches });
-  }
-  else if (state.flowStep === 'feel') setFlowStep('release');
-  else if (state.flowStep === 'release') {
-    setFlowStep('reflect');
-    focusSoon(elements.flowReflect.querySelector('[data-reflection]'), {
-      scroll: compactLayout.matches
+    focusSoon(elements['flow-coach-title'], {
+      scroll: compactLayout.matches,
+      block: 'start'
     });
-  } else if (state.flowStep === 'reflect' && state.reflection) {
-    if (state.reflection === 'easier') {
-      setFlowStep('choose');
-      focusSoon(elements.needTabs.querySelector('button'));
-    } else {
-      nextCue();
-      setFlowStep('see');
-      persistPreferences();
-      focusSoon(elements.flowActionButton);
-    }
+  }
+  else if (state.flowStep === 'feel') {
+    setFlowStep('go');
+    focusSoon(elements['flow-coach-title'], {
+      scroll: compactLayout.matches,
+      block: 'start'
+    });
+  } else if (state.flowStep === 'go') {
+    completeDailySetup();
   }
 });
 
 elements.flowStageActionButton.addEventListener('click', () => {
   if (state.flowStep === 'feel') {
-    setFlowStep('release');
-    focusSoon(elements.flowStageActionButton);
-  } else if (state.flowStep === 'release') {
-    setFlowStep('reflect');
-    focusSoon(elements.flowReflect.querySelector('[data-reflection]'), {
-      scroll: compactLayout.matches
+    setFlowStep('go');
+    focusSoon(elements['flow-coach-title'], {
+      scroll: compactLayout.matches,
+      block: 'start'
     });
   }
 });
@@ -917,43 +1169,45 @@ elements.flowPauseButton.addEventListener('click', () => {
 });
 
 elements.changeNeedButton.addEventListener('click', () => {
-  setFlowStep('choose');
-  focusSoon(elements.needTabs.querySelector('button'));
+  restartDailySetup();
 });
 
 elements.anotherCueButton.addEventListener('click', () => {
-  nextCue();
-  setFlowStep('see');
-  persistPreferences();
-  focusSoon(elements.flowActionButton);
+  if (state.flowStep === 'see') {
+    nextCue();
+    updateFlowUI();
+    updateFrameUI();
+    requestRender();
+    focusSoon(elements.flowActionButton);
+  } else if (state.flowStep === 'feel') {
+    setFlowStep('go');
+    focusSoon(elements['flow-coach-title'], {
+      scroll: compactLayout.matches,
+      block: 'start'
+    });
+  }
 });
 
-for (const button of elements.flowReflect.querySelectorAll('[data-reflection]')) {
+elements.flowBackButton.addEventListener('click', () => {
+  if (state.daily.completed) return;
+  setFlowStep(previousPreRunStep(state.flowStep));
+  focusSoon(elements['flow-coach-title'], {
+    scroll: compactLayout.matches,
+    block: 'start'
+  });
+});
+
+for (const button of elements.afterRun.querySelectorAll('[data-outcome]')) {
   button.addEventListener('click', () => {
-    state.reflection = button.dataset.reflection;
-    if (state.reflection === 'easier') {
-      state.savedCue = {
-        needId: state.flowNeed,
-        index: Number(state.cueIndexes[state.flowNeed]) || 0
-      };
-    }
+    state.daily.outcome = button.dataset.outcome;
+    persistDailySession();
+    updateHistoryEntry();
     updateFlowUI();
-    persistPreferences();
-    focusSoon(elements.flowActionButton);
   });
 }
 
-elements.clearSavedCue.addEventListener('click', () => {
-  state.savedCue = null;
-  updateFlowUI();
-  persistPreferences();
-  focusSoon(
-    state.flowStep === 'choose'
-      ? elements.needTabs.querySelector('button')
-      : state.flowStep === 'reflect' && !state.reflection
-        ? elements.flowReflect.querySelector('[data-reflection]')
-        : elements.flowActionButton
-  );
+elements.startAnotherRun.addEventListener('click', () => {
+  restartDailySetup({ anotherRun: true });
 });
 
 elements.tuneSlider.addEventListener('input', (event) => {
@@ -1028,8 +1282,53 @@ const resizeObserver = new ResizeObserver(() => {
 });
 resizeObserver.observe(elements.runnerCanvas);
 
+let dayBoundaryTimer = 0;
+
+function resetDailyForNewDate() {
+  const dateKey = localDateKey();
+  if (state.daily.dateKey === dateKey) return false;
+  state.daily = createDailySession(dateKey);
+  state.flowStep = 'run';
+  state.flowNeed = 'flow';
+  state.playing = false;
+  persistDailySession();
+  buildRunTypeTabs();
+  if (state.mode === 'flow') {
+    state.view = getFlowNeed('flow').view;
+    state.lens = getFlowNeed('flow').lens;
+    syncViewButtons();
+    syncLensButtons();
+  }
+  syncPlayButton();
+  updateFlowUI();
+  updateFrameUI();
+  requestRender();
+  return true;
+}
+
+function scheduleDayBoundary() {
+  window.clearTimeout(dayBoundaryTimer);
+  const now = new Date();
+  const nextDay = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+    0,
+    0,
+    1
+  );
+  dayBoundaryTimer = window.setTimeout(() => {
+    resetDailyForNewDate();
+    scheduleDayBoundary();
+  }, Math.min(nextDay.getTime() - now.getTime(), 2147483647));
+}
+
 document.addEventListener('visibilitychange', () => {
   lastTime = performance.now();
+  if (document.visibilityState === 'visible') {
+    resetDailyForNewDate();
+    scheduleDayBoundary();
+  }
 });
 
 let lastTime = performance.now();
@@ -1067,6 +1366,7 @@ function ensureAnimation() {
 
 buildPaceTabs();
 buildNeedTabs();
+buildRunTypeTabs();
 buildTuneTabs();
 buildPhaseButtons();
 buildPrinciples();
@@ -1076,6 +1376,7 @@ updateFlowUI();
 updatePaceUI();
 syncPlayButton();
 ensureAnimation();
+scheduleDayBoundary();
 
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {

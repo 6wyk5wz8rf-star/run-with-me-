@@ -1,10 +1,11 @@
-const CACHE_NAME = 'rift-form-lab-v12';
+const CACHE_NAME = 'rift-form-lab-v13';
 const CORE_FILES = [
   './',
   './index.html',
   './styles.css',
   './src/app.js',
   './src/data.js',
+  './src/pre-run.js',
   './src/kinematics.js',
   './src/renderer.js',
   './manifest.webmanifest'

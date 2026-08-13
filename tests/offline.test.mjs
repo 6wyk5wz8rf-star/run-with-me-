@@ -17,6 +17,7 @@ test('offline core cache includes every application module', async () => {
     './styles.css',
     './src/app.js',
     './src/data.js',
+    './src/pre-run.js',
     './src/kinematics.js',
     './src/renderer.js',
     './manifest.webmanifest'
@@ -28,9 +29,9 @@ test('offline core cache includes every application module', async () => {
   }
 });
 
-test('offline cache version is bumped for the continuous mechanics rebuild', async () => {
+test('offline cache version is bumped for the daily pre-run rebuild', async () => {
   const worker = await readFile(resolve(root, 'service-worker.js'), 'utf8');
-  assert.match(worker, /rift-form-lab-v12/);
+  assert.match(worker, /rift-form-lab-v13/);
 });
 
 test('production build emits a worker that caches bundled assets', () => {
